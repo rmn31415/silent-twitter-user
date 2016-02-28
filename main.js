@@ -3,8 +3,9 @@ var cookieParser = require( "cookie-parser" );
 var session = require( "express-session" );
 var Twitter = require( "twitter" );
 var OAuth = require( "oauth" ).OAuth;
-
 var app = express();
+var requestId = 0;
+
 app.use( cookieParser() );
 app.use( session( {
   saveUninitialized: false,
@@ -26,12 +27,21 @@ tokenList.forEach( function( item ) {
   }
 } );
 
-var client = new Twitter( {
-  consumer_key:       process.env.TWITTER_CONSUMER_KEY,
-  consumer_secret:    process.env.TWITTER_CONSUMER_SECRET,
-  access_token_key:    process.env.TWITTER_ACCESS_TOKEN_KEY,
-  access_token_secret: process.env.TWITTER_ACCESS_TOKEN_SECRET
-} );
+function createClient( accessTokenKey, accessTokenSecret ) {
+  return new Twitter( {
+    consumer_key:       process.env.TWITTER_CONSUMER_KEY,
+    consumer_secret:    process.env.TWITTER_CONSUMER_SECRET,
+    access_token_key:    accessTokenKey,
+    access_token_secret: accessTokenSecret
+  } );
+}
+
+var debug_client = createClient(
+  process.env.TWITTER_ACCESS_TOKEN_KEY,
+  process.env.TWITTER_ACCESS_TOKEN_SECRET
+);
+
+var port = 3000;
 
 var oauth = new OAuth(
     "https://api.twitter.com/oauth/request_token",
@@ -42,9 +52,6 @@ var oauth = new OAuth(
     "http://127.0.0.1:" + port + "/auth/twitter/callback",
     "HMAC-SHA1"
 );
-
-
-var port = 3000;
 
 if( process.env.NODE_PORT !== void 0 ) {
   port = parseInt( process.env.NODE_PORT, 10 );
@@ -68,11 +75,51 @@ app.get( '/auth/twitter', function( req, res ) {
 //    console.log( 'Secret: ' + req.session.oauth.token_secret );
     res.redirect( 'https://twitter.com/oauth/authenticate?oauth_token=' + token )
   } );
-
 } );
 
-app.get( '/friends', function( req, res ) {
-  client.get('friends/ids', {screen_name: "@rmn_e", count: 100}, function(error, result, response){
+app.get( '/auth/twitter/callback', function( req, res ) {
+  if( !req.session.oauth ) {
+    res.send( "Twitterアカウントでログインしてからアクセスしてください。" );
+    return;
+  }
+  req.session.oauth.verifier = req.query.oauth_verifier; 
+  oauth.getOAuthAccessToken(
+      req.session.oauth.token,
+      req.session.oauth.token_secret,
+      req.session.oauth.verifier,
+      function ( error, accessToken, accessTokenSecret, result ) {
+        if( error ) { 
+          console.log( error );
+          res.send( "OAuthアクセストークンの取得に失敗しました。" );
+          return;
+        }
+        req.session.oauth.access_token = accessToken;
+        req.session.oauth.access_token_secret = accessTokenSecret;
+        req.session.twitter = {
+          user_id: result.user_id,
+          screen_name: result.screen_name
+        };
+        console.log( result );
+        res.send( "OK!" );
+      }
+  );
+} );
+
+app.get( '/start', function( req, res ) {
+  if( !req.session.oauth ) {
+    res.status( 403 );
+    res.set( { "Content-Type": "application/json;charset=UTF-8" } );
+    res.send( JSON.stringify( {
+      type: "error",
+      message: "Twitterアカウントでログインしてからアクセスしてください。"
+    } ) );
+    return;
+  }
+  var client = createClient(
+      req.session.oauth.access_token,
+      req.session.oauth.access_token_secret
+   );
+  client.get('friends/ids', {user_id: req.session.twitter.user_id, count: 100}, function(error, result, response){
     var userIdList = result.ids
     var allNum = userIdList.length;
     var finishedNum = 0;
@@ -82,7 +129,7 @@ app.get( '/friends', function( req, res ) {
 
     for( var i = 0; i < allNum; i++ ) {
       ( function ( i ) {
-        getAverageIntervalByUser( userIdList[ i ], function( tStatus, avgDiff) {
+        getAverageIntervalByUser( client, userIdList[ i ], function( tStatus, avgDiff) {
           if( stop ) return;
           if( tStatus === "success" ) {
             avgTimeList[ i ] = { id: userIdList[ i ], average: avgDiff };
@@ -107,12 +154,18 @@ app.get( '/friends', function( req, res ) {
     }
     console.log( "Tweets:" + JSON.stringify( result ));
     console.log( "Error:" + JSON.stringify(error ));
-  });
-  res.send( "フォローしているユーザ一覧を取得中, しばらくお待ちください" );
+  } );
+  res.status( 200 );
+  res.set( { "Content-Type": "application/json;charset=UTF-8" } );
+  res.send( JSON.stringify( {
+    type: "success",
+    request_id: requestId++,
+    message: "受理されました。"
+  } ) );
 } );
 
 
-function getAverageIntervalByUser( userId, callBack ) {
+function getAverageIntervalByUser( client, userId, callBack ) {
   client.get('statuses/user_timeline', {user_id: userId }, function(error, result, response) {
     if( error === null ) {
       console.log( "ENTER with " + userId );
@@ -135,8 +188,8 @@ function getAverageIntervalByUser( userId, callBack ) {
       console.log( "average:" + avgDiff + "[sec]" );
       callBack( "success", avgDiff );
     } else {
-
-      if( error[ 0 ].code === 88 ) {
+      console.log( error );
+      if( error != void 0 && error[ 0 ] != void 0 && error[ 0 ].code === 88 ) {
         callBack( "ratelimit" );
       } else {
         callBack( "error" );
