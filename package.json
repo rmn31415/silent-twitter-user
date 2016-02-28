@@ -1,0 +1,22 @@
+{
+  "name": "silent-twitter-user",
+  "description": "Generate Twitter User List includes only silent users.",
+  "version": "0.0.1",
+  "homepage": "https://github.com/rmn31415/silent-twitter-user",
+  "author": {
+    "name": "Matsuyuki/rmn.",
+    "email": "matsuyuki.eca@gmail.com"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/rmn31415/silent-twitter-user.git"
+  },
+  "bugs": {
+    "url": "https://github.com/rmn31415/silent-twitter-user/issues"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.13.4",
+    "twitter": "^1.2.5"
+  }
+}
