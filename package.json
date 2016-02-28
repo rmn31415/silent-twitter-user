@@ -17,6 +17,7 @@
   "license": "MIT",
   "dependencies": {
     "express": "^4.13.4",
+    "oauth": "^0.9.14",
     "twitter": "^1.2.5"
   }
 }

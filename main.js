@@ -1,5 +1,6 @@
 var express = require( "express" );
 var Twitter = require( "twitter" );
+var OAuth = require( "oauth" ).OAuth;
 var app = express();
 
 var tokenList = [
