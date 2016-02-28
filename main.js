@@ -24,6 +24,17 @@ var client = new Twitter( {
   access_token_secret: process.env.TWITTER_ACCESS_TOKEN_SECRET
 } );
 
+var oa = new OAuth(
+    "https://api.twitter.com/oauth/request_token",
+    "https://api.twitter.com/oauth/access_token",
+    process.env.TWITTER_CONSUMER_KEY,
+    process.env.TWITTER_CONSUMER_SECRET,
+    "1.0",
+    "http://127.0.0.1:3000/auth/twitter/callback",
+    "HMAC-SHA1"
+);
+
+
 var port = 3000;
 
 if( process.env.NODE_PORT !== void 0 ) {
