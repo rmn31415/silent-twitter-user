@@ -1,7 +1,16 @@
 var express = require( "express" );
+var cookieParser = require( "cookie-parser" );
+var session = require( "express-session" );
 var Twitter = require( "twitter" );
 var OAuth = require( "oauth" ).OAuth;
+
 var app = express();
+app.use( cookieParser() );
+app.use( session( {
+  saveUninitialized: false,
+  secret: 'secret',
+  resave: false,
+  cookie: { maxAge: 60000 } } ) );
 
 var tokenList = [
   { name: "Consumer Key",        value: process.env.TWITTER_CONSUMER_KEY },
@@ -24,13 +33,13 @@ var client = new Twitter( {
   access_token_secret: process.env.TWITTER_ACCESS_TOKEN_SECRET
 } );
 
-var oa = new OAuth(
+var oauth = new OAuth(
     "https://api.twitter.com/oauth/request_token",
     "https://api.twitter.com/oauth/access_token",
     process.env.TWITTER_CONSUMER_KEY,
     process.env.TWITTER_CONSUMER_SECRET,
     "1.0",
-    "http://127.0.0.1:3000/auth/twitter/callback",
+    "http://127.0.0.1:" + port + "/auth/twitter/callback",
     "HMAC-SHA1"
 );
 
@@ -46,6 +55,21 @@ if( process.env.NODE_PORT !== void 0 ) {
 }
 
 app.use( '/', express.static( 'public' ) );
+
+app.get( '/auth/twitter', function( req, res ) {
+  oauth.getOAuthRequestToken( function( error, token, secret, result ) {
+    if( error ) {
+      console.log( error );
+      res.send( "OAuthリクエストトークンの取得に失敗しました。" );
+      return;
+    }
+    req.session.oauth = { token: token, token_secret: secret };
+//    console.log( 'Token:' +  req.session.oauth.token );
+//    console.log( 'Secret: ' + req.session.oauth.token_secret );
+    res.redirect( 'https://twitter.com/oauth/authenticate?oauth_token=' + token )
+  } );
+
+} );
 
 app.get( '/friends', function( req, res ) {
   client.get('friends/ids', {screen_name: "@rmn_e", count: 100}, function(error, result, response){
