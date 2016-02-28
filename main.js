@@ -40,6 +40,7 @@ app.get( '/friends', function( req, res ) {
     var userIdList = result.ids
     var allNum = userIdList.length;
     var finishedNum = 0;
+    var succeededNum = 0;
     var avgTimeList = new Array( allNum );
     var stop = false;
 
@@ -48,16 +49,22 @@ app.get( '/friends', function( req, res ) {
         getAverageIntervalByUser( userIdList[ i ], function( tStatus, avgDiff) {
           if( stop ) return;
           if( tStatus === "success" ) {
-            avgTimeList[ i ] = avgDiff;
-          } else if( tStatus === "ratelimit" || tStatus === "error" ) {
+            avgTimeList[ i ] = { id: userIdList[ i ], average: avgDiff };
+            succeededNum++;
+          } else if( tStatus === "ratelimit"  ) {
             console.log( "Rate Limit Exceeded!" );
             stop = true;
             return;
+          } else if( tStatus === "error" ) {
+            // 鍵垢などの理由で取得失敗
+            console.log( "取得失敗: " + userIdList[ i ] );
           }
           console.log( tStatus + " " + i + ": " + avgDiff );
           if( ++finishedNum === allNum ) {
-            console.log( result );
-            console.log( avgTimeList );
+            avgTimeList.sort( function( a, b ) {
+              return b.average - a.average; // 降順ソート
+            } );
+            console.log( result ); console.log( avgTimeList );
           }
         } );
       } ) ( i ); 
