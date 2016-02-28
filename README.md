@@ -1,5 +1,5 @@
 # silent-twitter-user
-静かなTwitterユーザを見守る人のためのツール（仮）
+静かなTwitterユーザを見守るためのツール（仮）
 
 ## How to use
 
