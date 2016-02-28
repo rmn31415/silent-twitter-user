@@ -109,12 +109,6 @@ function getAverageIntervalByUser( userId, callBack ) {
   } );
 }
 
-
-app.get( '/tweets', function( req, res ) {
-
-   res.send( "指定ユーザの最新ツイートを取得中, しばらくお待ちください" );
-} );
-
 app.listen( port );
 console.log( "server is running on http://localhost:" + port + "/" );
 
