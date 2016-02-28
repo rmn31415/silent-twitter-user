@@ -35,14 +35,78 @@ if( process.env.NODE_PORT !== void 0 ) {
 
 app.use( '/', express.static( 'public' ) );
 
-app.get( '/test', function( req, res ) {
-  client.get('followers/ids', {screen_name: "@rmn_e"}, function(error, result, response){
+app.get( '/friends', function( req, res ) {
+  client.get('friends/ids', {screen_name: "@rmn_e", count: 100}, function(error, result, response){
+    var userIdList = result.ids
+    var allNum = userIdList.length;
+    var finishedNum = 0;
+    var avgTimeList = new Array( allNum );
+    var stop = false;
+
+    for( var i = 0; i < allNum; i++ ) {
+      ( function ( i ) {
+        getAverageIntervalByUser( userIdList[ i ], function( tStatus, avgDiff) {
+          if( stop ) return;
+          if( tStatus === "success" ) {
+            avgTimeList[ i ] = avgDiff;
+          } else if( tStatus === "ratelimit" || tStatus === "error" ) {
+            console.log( "Rate Limit Exceeded!" );
+            stop = true;
+            return;
+          }
+          console.log( tStatus + " " + i + ": " + avgDiff );
+          if( ++finishedNum === allNum ) {
+            console.log( result );
+            console.log( avgTimeList );
+          }
+        } );
+      } ) ( i ); 
+    }
     console.log( "Tweets:" + JSON.stringify( result ));
     console.log( "Error:" + JSON.stringify(error ));
   });
-  res.send( "Hello, World!" );
+  res.send( "フォローしているユーザ一覧を取得中, しばらくお待ちください" );
 } );
 
+
+function getAverageIntervalByUser( userId, callBack ) {
+  client.get('statuses/user_timeline', {user_id: userId }, function(error, result, response) {
+    if( error === null ) {
+      console.log( "ENTER with " + userId );
+
+      var postedTimeDiffList = result.map( function( tweet ) {
+        return new Date( tweet.created_at ).getTime() / 1000;
+      } ).map( function( cur, idx, array ) {
+        if( idx === array.length - 1 ) { return void 0; }
+        return cur - array[ idx + 1 ];
+      } );
+
+      postedTimeDiffList.pop();
+
+      var len = postedTimeDiffList.length;
+
+      var avgDiff = postedTimeDiffList.reduce( function( prev, cur ) {
+        return prev + cur;
+      } ) / len;
+
+      console.log( "average:" + avgDiff + "[sec]" );
+      callBack( "success", avgDiff );
+    } else {
+
+      if( error[ 0 ].code === 88 ) {
+        callBack( "ratelimit" );
+      } else {
+        callBack( "error" );
+      }
+    }
+  } );
+}
+
+
+app.get( '/tweets', function( req, res ) {
+
+   res.send( "指定ユーザの最新ツイートを取得中, しばらくお待ちください" );
+} );
 
 app.listen( port );
 console.log( "server is running on http://localhost:" + port + "/" );
