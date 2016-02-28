@@ -36,8 +36,8 @@ if( process.env.NODE_PORT !== void 0 ) {
 app.use( '/', express.static( 'public' ) );
 
 app.get( '/test', function( req, res ) {
-  client.get('search/tweets', {q: 'node.js'}, function(error, tweets, response){
-    console.log( "Tweets:" + JSON.stringify( tweets ));
+  client.get('followers/ids', {screen_name: "@rmn_e"}, function(error, result, response){
+    console.log( "Tweets:" + JSON.stringify( result ));
     console.log( "Error:" + JSON.stringify(error ));
   });
   res.send( "Hello, World!" );
