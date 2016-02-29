@@ -43,6 +43,7 @@ var debug_client = createClient(
 );
 
 var port = 3000;
+var host = process.env.NODE_HOST;
 
 var oauth = new OAuth(
     "https://api.twitter.com/oauth/request_token",
@@ -50,7 +51,7 @@ var oauth = new OAuth(
     process.env.TWITTER_CONSUMER_KEY,
     process.env.TWITTER_CONSUMER_SECRET,
     "1.0",
-    "http://127.0.0.1:" + port + "/auth/twitter/callback",
+    "http://" + host + ":" + port + "/auth/twitter/callback",
     "HMAC-SHA1"
 );
 
@@ -281,6 +282,6 @@ function getAverageIntervalByUser( client, userId, callBack ) {
 }
 
 app.listen( port );
-console.log( "server is running on http://localhost:" + port + "/" );
+console.log( "server is running on http://" + host + ":" + port + "/" );
 
 
