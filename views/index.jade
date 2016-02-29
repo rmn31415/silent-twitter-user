@@ -1,0 +1,12 @@
+extends layout
+
+block content
+  h1 静かなTwitterユーザを集めるツール（仮）
+  p#notice.notice= infoMessage
+  p#caution.caution= errorMessage
+  p このサービスは、あなたが最近フォローした180人のTwitterユーザの内、つぶやく頻度の低いユーザ30人を表示するものです。
+  p ホームのタイムラインの流れが速すぎて、大切な人のつぶやきを見逃していませんか？このサービスは、そんなあなたを助けるために作られました。
+  p まずは、
+    a(href="/auth/twitter") このリンクからTwitterでログイン
+    してください。
+

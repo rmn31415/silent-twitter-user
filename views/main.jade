@@ -1,0 +1,20 @@
+extends layout
+
+block script
+  script(src='script/main.js')
+
+block content
+  h1 メイン画面
+  h2 @#{screenName}さんとしてログイン中
+
+  p#notice.notice= infoMessage
+  p#caution.caution= errorMessage
+
+  button#get-info-button 取得
+
+  table#target-table
+    tr
+      th アイコン
+      th スクリーンネーム
+      th 名前
+      th 平均ツイート間隔 

@@ -62,17 +62,24 @@ if( process.env.NODE_PORT !== void 0 ) {
   }
 }
 
-app.use( '/', express.static( 'public' ) );
+app.use( '/script', express.static( 'client_script' ) );
+app.get('/', function(req, res ) {
+    res.render('index');
+});
 
 app.get( '/auth/twitter', function( req, res ) {
   if( req.session.oauth ) {
-    res.send( "既にログインされているようです。" );
+//    res.send( "既にログインされているようです。" );
+    req.session.destroy(); // logout!!
+    res.redirect( '/' )
     return;
   }
   oauth.getOAuthRequestToken( function( error, token, secret, result ) {
     if( error ) {
       console.log( error );
-      res.send( "OAuthリクエストトークンの取得に失敗しました。" );
+      res.render( 'error_nologin', {
+        errorMessage: "OAuthリクエストトークンの取得に失敗しました。"
+      } );
       return;
     }
     req.session.oauth = { token: token, token_secret: secret };
@@ -97,7 +104,10 @@ app.get( '/auth/twitter/callback', function( req, res ) {
       function ( error, accessToken, accessTokenSecret, result ) {
         if( error ) { 
           console.log( error );
-          res.send( "OAuthアクセストークンの取得に失敗しました。" );
+          req.session.destroy(); // logout!!
+          res.render( 'error_nologin', {
+            errorMessage: "OAuthアクセストークンの取得に失敗しました。"
+          } );
           return;
         }
         req.session.oauth.access_token = accessToken;
@@ -107,12 +117,27 @@ app.get( '/auth/twitter/callback', function( req, res ) {
           screen_name: result.screen_name
         };
         console.log( result );
-        res.send( "OK!" );
+
+        res.redirect( '/main' )
       }
   );
 } );
 
-app.get( '/start', function( req, res ) {
+app.get( '/main', function( req, res ) {
+  if( !req.session.oauth ) {
+    res.render( 'index', {
+      errorMessage: "ログインしてください。"
+    } );
+    return;
+  }
+  res.render( 'main', {
+    infoMessage: "ログインしました。「取得」ボタンを1回押すことで、あまりつぶやかない30人の情報を取得できます。",
+    id: req.session.twitter.user_id,
+    screenName: req.session.twitter.screen_name
+  } );
+} );
+
+app.get( '/api/user/silent', function( req, res ) {
   if( !req.session.oauth ) {
     res.status( 403 );
     res.set( { "Content-Type": "application/json;charset=UTF-8" } );
@@ -159,17 +184,17 @@ app.get( '/start', function( req, res ) {
             avgTimeList.sort( function( a, b ) {
               return b.average - a.average; // 降順ソート
             } );
-            avgTimeList = avgTimeList.slice( 0, 10 );
+            avgTimeList = avgTimeList.slice( 0, 30 );
             var userIdArray = avgTimeList.map( function( item ) {
               return item.id;
             } );
-            console.log( userIdArray.join(",") );
+//            console.log( userIdArray.join(",") );
             getUsersDetail( client, userIdArray, function( dStatus, result ) {
-              console.log( result );
-              for( var j = 0; j < avgTimeList.length; j++ ) {
-                avgTimeList[ j ].detail = result[ j ];
-              }
+//              console.log( result );
               if( dStatus === "success" ) {
+                for( var j = 0; j < avgTimeList.length; j++ ) {
+                  avgTimeList[ j ].detail = result[ j ];
+                }
                 res.status( 200 );
                 res.set( { "Content-Type": "application/json;charset=UTF-8" } );
                 res.send( JSON.stringify( {
@@ -178,6 +203,13 @@ app.get( '/start', function( req, res ) {
                   next_cursor: result.next_cursor,
                   next_cursor_str: result.next_cursor_str,
                   rate_limit: includesRateLimit
+                } ) );
+              } else {
+                res.status( 503 );
+                res.set( { "Content-Type": "application/json;charset=UTF-8" } );
+                res.send( JSON.stringify( {
+                  status: "error",
+                  message: "Twitterからのユーザ情報取得失敗"
                 } ) );
               }
             } );
@@ -193,8 +225,8 @@ app.get( '/start', function( req, res ) {
 
 function getUsersDetail( client, userIds, callBack ) {
   client.get('users/lookup', { user_id: userIds.join(",") }, function(error, result, respose ) {
-    console.log( "RES " + JSON.stringify( result ) );
-    console.log( "ERR " + JSON.stringify( error  ));
+//    console.log( "RES " + JSON.stringify( result ) );
+//    console.log( "ERR " + JSON.stringify( error  ));
     if( error === null ) {
       callBack( "success", result );
     } else {
