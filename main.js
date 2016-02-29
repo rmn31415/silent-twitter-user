@@ -63,6 +63,10 @@ if( process.env.NODE_PORT !== void 0 ) {
 app.use( '/', express.static( 'public' ) );
 
 app.get( '/auth/twitter', function( req, res ) {
+  if( req.session.oauth ) {
+    res.send( "既にログインされているようです。" );
+    return;
+  }
   oauth.getOAuthRequestToken( function( error, token, secret, result ) {
     if( error ) {
       console.log( error );
@@ -78,7 +82,9 @@ app.get( '/auth/twitter', function( req, res ) {
 
 app.get( '/auth/twitter/callback', function( req, res ) {
   if( !req.session.oauth ) {
-    res.send( "Twitterアカウントでログインしてからアクセスしてください。" );
+//    res.send( "Twitterアカウントでログインしてからアクセスしてください。" );
+    console.log( "session not found" );
+    res.redirect( "/auth/twitter" );   
     return;
   }
   req.session.oauth.verifier = req.query.oauth_verifier; 
@@ -132,6 +138,9 @@ app.get( '/start', function( req, res ) {
           if( tStatus === "success" ) {
             avgTimeList[ i ] = { status: "success",  id: userIdList[ i ], average: avgDiff };
             succeededNum++;
+          } else if( tStatus === "empty" ) {
+            console.log( "EMPTY: " + i );
+            avgTimeList[ i ] = { status: "empty",  id: userIdList[ i ], average: null };
           } else if( tStatus === "ratelimit"  ) {
 //            console.log( "Rate Limit Exceeded!" );
             avgTimeList[ i ] = { status: "ratelimit", id: userIdList[ i ], average: null };
@@ -196,6 +205,11 @@ function getAverageIntervalByUser( client, userId, callBack ) {
   client.get('statuses/user_timeline', {user_id: userId }, function(error, result, response) {
     if( error === null ) {
 //      console.log( "ENTER with " + userId );
+//    1ツイートでは平均が出せないため
+      if( result.length <= 1 ) {
+        callBack( "empty" );
+        return;
+      }
 
       var postedTimeDiffList = result.map( function( tweet ) {
         return new Date( tweet.created_at ).getTime() / 1000;
