@@ -4,7 +4,6 @@ var session = require( "express-session" );
 var Twitter = require( "twitter" );
 var OAuth = require( "oauth" ).OAuth;
 var app = express();
-var requestId = 0;
 
 app.use( cookieParser() );
 app.use( session( {
@@ -110,7 +109,7 @@ app.get( '/start', function( req, res ) {
     res.status( 403 );
     res.set( { "Content-Type": "application/json;charset=UTF-8" } );
     res.send( JSON.stringify( {
-      type: "error",
+      status: "error",
       message: "Twitterアカウントでログインしてからアクセスしてください。"
     } ) );
     return;
@@ -119,56 +118,84 @@ app.get( '/start', function( req, res ) {
       req.session.oauth.access_token,
       req.session.oauth.access_token_secret
    );
-  client.get('friends/ids', {user_id: req.session.twitter.user_id, count: 100}, function(error, result, response){
+  client.get('friends/ids', {user_id: req.session.twitter.user_id, count: 180}, function(error, result, response){
     var userIdList = result.ids
     var allNum = userIdList.length;
     var finishedNum = 0;
     var succeededNum = 0;
+    var includesRateLimit = false
     var avgTimeList = new Array( allNum );
-    var stop = false;
 
     for( var i = 0; i < allNum; i++ ) {
       ( function ( i ) {
         getAverageIntervalByUser( client, userIdList[ i ], function( tStatus, avgDiff) {
-          if( stop ) return;
           if( tStatus === "success" ) {
-            avgTimeList[ i ] = { id: userIdList[ i ], average: avgDiff };
+            avgTimeList[ i ] = { status: "success",  id: userIdList[ i ], average: avgDiff };
             succeededNum++;
           } else if( tStatus === "ratelimit"  ) {
-            console.log( "Rate Limit Exceeded!" );
-            stop = true;
-            return;
+//            console.log( "Rate Limit Exceeded!" );
+            avgTimeList[ i ] = { status: "ratelimit", id: userIdList[ i ], average: null };
+            includesRateLimit = true;
           } else if( tStatus === "error" ) {
             // 鍵垢などの理由で取得失敗
             console.log( "取得失敗: " + userIdList[ i ] );
+            avgTimeList[ i ] = { status: "error", id: userIdList[ i ], average: null };
           }
-          console.log( tStatus + " " + i + ": " + avgDiff );
-          if( ++finishedNum === allNum ) {
+//          console.log( tStatus + " " + i + ": " + avgDiff );
+          finishedNum++;
+//          console.log( finishedNum );
+          if( finishedNum === allNum ) {
             avgTimeList.sort( function( a, b ) {
               return b.average - a.average; // 降順ソート
             } );
-            console.log( result ); console.log( avgTimeList );
+            avgTimeList = avgTimeList.slice( 0, 10 );
+            var userIdArray = avgTimeList.map( function( item ) {
+              return item.id;
+            } );
+            console.log( userIdArray.join(",") );
+            getUsersDetail( client, userIdArray, function( dStatus, result ) {
+              console.log( result );
+              for( var j = 0; j < avgTimeList.length; j++ ) {
+                avgTimeList[ j ].detail = result[ j ];
+              }
+              if( dStatus === "success" ) {
+                res.status( 200 );
+                res.set( { "Content-Type": "application/json;charset=UTF-8" } );
+                res.send( JSON.stringify( {
+                  status: "success",
+                  result: avgTimeList,
+                  next_cursor: result.next_cursor,
+                  next_cursor_str: result.next_cursor_str,
+                  rate_limit: includesRateLimit
+                } ) );
+              }
+            } );
           }
         } );
       } ) ( i ); 
     }
-    console.log( "Tweets:" + JSON.stringify( result ));
-    console.log( "Error:" + JSON.stringify(error ));
+//    console.log( "Tweets:" + JSON.stringify( result ));
+//    console.log( "Error:" + JSON.stringify( error ));
   } );
-  res.status( 200 );
-  res.set( { "Content-Type": "application/json;charset=UTF-8" } );
-  res.send( JSON.stringify( {
-    type: "success",
-    request_id: requestId++,
-    message: "受理されました。"
-  } ) );
 } );
 
+
+function getUsersDetail( client, userIds, callBack ) {
+  client.get('users/lookup', { user_id: userIds.join(",") }, function(error, result, respose ) {
+    console.log( "RES " + JSON.stringify( result ) );
+    console.log( "ERR " + JSON.stringify( error  ));
+    if( error === null ) {
+      callBack( "success", result );
+    } else {
+      callBack( "error" );
+    }
+  } );
+}
 
 function getAverageIntervalByUser( client, userId, callBack ) {
   client.get('statuses/user_timeline', {user_id: userId }, function(error, result, response) {
     if( error === null ) {
-      console.log( "ENTER with " + userId );
+//      console.log( "ENTER with " + userId );
 
       var postedTimeDiffList = result.map( function( tweet ) {
         return new Date( tweet.created_at ).getTime() / 1000;
@@ -185,10 +212,10 @@ function getAverageIntervalByUser( client, userId, callBack ) {
         return prev + cur;
       } ) / len;
 
-      console.log( "average:" + avgDiff + "[sec]" );
+//      console.log( "average:" + avgDiff + "[sec]" );
       callBack( "success", avgDiff );
     } else {
-      console.log( error );
+//      console.log( error );
       if( error != void 0 && error[ 0 ] != void 0 && error[ 0 ].code === 88 ) {
         callBack( "ratelimit" );
       } else {
