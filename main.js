@@ -67,6 +67,13 @@ app.get('/', function(req, res ) {
     res.render('index');
 });
 
+app.get( '/logout', function( req, res ) {
+  if( req.session.oauth ) {
+    req.session.destroy(); // logout!!
+  }
+  res.redirect( '/' );
+} );
+
 app.get( '/auth/twitter', function( req, res ) {
   if( req.session.oauth ) {
 //    res.send( "既にログインされているようです。" );
