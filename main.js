@@ -11,6 +11,8 @@ app.use( session( {
   secret: 'secret',
   resave: false,
   cookie: { maxAge: 60000 } } ) );
+app.set( "views", "./views" );
+app.set( "view engine", "jade" );
 
 var tokenList = [
   { name: "Consumer Key",        value: process.env.TWITTER_CONSUMER_KEY },
